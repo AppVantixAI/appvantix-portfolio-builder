@@ -1,0 +1,128 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  SERVICE_NAME: appvantix-web-builder
+  REGION: us-central1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run type check
+        run: pnpm run typecheck
+
+      - name: Run tests
+        run: pnpm run test
+
+      - name: Run linting
+        run: pnpm run lint
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker to use gcloud as credential helper
+        run: gcloud auth configure-docker
+
+      - name: Build and push Docker image
+        env:
+          IMAGE_TAG: gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          LATEST_TAG: gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
+        run: |
+          docker build \
+            --target bolt-ai-production \
+            --tag $IMAGE_TAG \
+            --tag $LATEST_TAG \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            --cache-from $LATEST_TAG \
+            .
+          docker push $IMAGE_TAG
+          docker push $LATEST_TAG
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --port 8080 \
+            --memory 2Gi \
+            --cpu 2 \
+            --concurrency 80 \
+            --max-instances 100 \
+            --min-instances 1 \
+            --execution-environment gen2 \
+            --cpu-boost \
+            --set-env-vars="NODE_ENV=production,VITE_LOG_LEVEL=info" \
+            --set-secrets="OPENAI_API_KEY=openai-api-key:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,STRIPE_PUBLISHABLE_KEY=stripe-publishable-key:latest" \
+            --allow-unauthenticated
+
+      - name: Show service URL
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+          echo "Service deployed to: $SERVICE_URL"
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+
+  security-scan:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'

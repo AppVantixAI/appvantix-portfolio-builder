@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  app-dev:
+    image: appvantix-web-builder:development
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: bolt-ai-development
+    ports:
+      - '5173:5173'
+    env_file: '.env.local'
+    environment:
+      - NODE_ENV=development
+      - COMPOSE_PROFILES=development
+      - PORT=5173
+    volumes:
+      - ./app:/app/app
+      - ./public:/app/public
+    profiles:
+      - development
+
+  app-prod:
+    image: appvantix-web-builder:production
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: bolt-ai-production
+    ports:
+      - '8080:8080'
+    env_file: '.env.local'
+    environment:
+      - NODE_ENV=production
+      - COMPOSE_PROFILES=production
+      - PORT=8080
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - HuggingFace_API_KEY=${HuggingFace_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPEN_ROUTER_API_KEY=${OPEN_ROUTER_API_KEY}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+      - OLLAMA_API_BASE_URL=${OLLAMA_API_BASE_URL}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - TOGETHER_API_BASE_URL=${TOGETHER_API_BASE_URL}
+      - AWS_BEDROCK_CONFIG=${AWS_BEDROCK_CONFIG}
+      - VITE_LOG_LEVEL=${VITE_LOG_LEVEL:-info}
+      - DEFAULT_NUM_CTX=${DEFAULT_NUM_CTX:-32768}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+    profiles:
+      - production
+
+networks:
+  default:
+    name: appvantix-network

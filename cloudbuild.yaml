@@ -1,0 +1,67 @@
+steps:
+  # Build the container image with BuildKit optimizations
+  - name: 'gcr.io/cloud-builders/docker'
+    env:
+      - 'DOCKER_BUILDKIT=1'
+    args:
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/appvantix-web-builder:latest'
+      - '--tag'
+      - 'gcr.io/$PROJECT_ID/appvantix-web-builder:$COMMIT_SHA'
+      - '--tag'
+      - 'gcr.io/$PROJECT_ID/appvantix-web-builder:latest'
+      - '--build-arg'
+      - 'BUILDKIT_INLINE_CACHE=1'
+      - '--target'
+      - 'bolt-ai-production'
+      - '.'
+
+  # Security scan
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'container'
+      - 'images'
+      - 'scan'
+      - 'gcr.io/$PROJECT_ID/appvantix-web-builder:$COMMIT_SHA'
+      - '--remote'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'appvantix-web-builder'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/appvantix-web-builder:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--concurrency'
+      - '80'
+      - '--max-instances'
+      - '100'
+      - '--min-instances'
+      - '1'
+      - '--allow-unauthenticated'
+      - '--execution-environment'
+      - 'gen2'
+      - '--cpu-boost'
+
+images:
+  - 'gcr.io/$PROJECT_ID/appvantix-web-builder:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/appvantix-web-builder:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+timeout: 1800s

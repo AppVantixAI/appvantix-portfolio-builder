@@ -1,0 +1,73 @@
+{
+  "name": "appvantix-web-builder",
+  "version": "1.0.0",
+  "description": "AppVantix AI-Powered LinkedIn to Portfolio Website Builder - Transform LinkedIn profiles into stunning professional websites using AI",
+  "type": "module",
+  "license": "MIT",
+  "author": "AppVantix LLC",
+  "homepage": "https://appvantix.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AppVantixAI/appvantix-web-builder.git"
+  },
+  "scripts": {
+    "build": "remix vite:build",
+    "dev": "node pre-start.cjs && remix vite:dev --host 0.0.0.0 --port 5173",
+    "start": "node build/index.js",
+    "dockerstart": "bindings=$(./bindings.sh) && wrangler pages dev ./build/client $bindings --ip 0.0.0.0 --port ${PORT:-8080} --no-show-interactive-dev-session",
+    "dockerbuild": "docker build . --target bolt-ai-development -t appvantix-web-builder:development",
+    "docker:dev": "docker-compose --profile development up",
+    "docker:prod": "docker-compose --profile production up",
+    "docker:build": "docker build . --target bolt-ai-production -t appvantix-web-builder:production",
+    "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
+    "lint:fix": "pnpm run lint --fix",
+    "typecheck": "tsc",
+    "typegen": "wrangler types",
+    "preview": "pnpm run build && wrangler pages dev",
+    "deploy": "pnpm run build && wrangler pages deploy",
+    "test": "vitest",
+    "gcp:build": "gcloud builds submit --tag gcr.io/$PROJECT_ID/appvantix-web-builder",
+    "gcp:deploy": "gcloud run deploy appvantix-web-builder --image gcr.io/$PROJECT_ID/appvantix-web-builder --platform managed --region us-central1 --allow-unauthenticated"
+  },
+  "dependencies": {
+    "@remix-run/cloudflare": "^2.15.1",
+    "@remix-run/cloudflare-pages": "^2.15.1",
+    "@remix-run/react": "^2.15.1",
+    "@ai-sdk/anthropic": "^1.0.2",
+    "@ai-sdk/google": "^1.0.2",
+    "@ai-sdk/mistral": "^1.0.2",
+    "@ai-sdk/openai": "^1.0.2",
+    "@supabase/supabase-js": "^2.45.4",
+    "@stripe/stripe-js": "^4.8.0",
+    "stripe": "^17.3.1",
+    "ai": "^4.0.17",
+    "isbot": "^5.1.29",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "nanostores": "^0.11.3",
+    "@nanostores/react": "^0.8.0",
+    "vite": "^6.0.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "@remix-run/dev": "^2.15.1",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "@typescript-eslint/eslint-plugin": "^8.18.1",
+    "@typescript-eslint/parser": "^8.18.1",
+    "eslint": "^9.17.0",
+    "eslint-import-resolver-typescript": "^3.6.3",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "wrangler": "^3.101.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
+    "."
+  ]
+}
