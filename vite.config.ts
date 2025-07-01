@@ -1,6 +1,8 @@
 import { vitePlugin as remix } from "@remix-run/dev";
 import { installGlobals } from "@remix-run/node";
 import { defineConfig } from "vite";
+import tailwindcss from "tailwindcss";
+import autoprefixer from "autoprefixer";
 
 installGlobals();
 
@@ -21,6 +23,11 @@ export default defineConfig({
   preview: {
     host: "0.0.0.0",
     port: 8080,
+  },
+  css: {
+    postcss: {
+      plugins: [tailwindcss, autoprefixer],
+    },
   },
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
